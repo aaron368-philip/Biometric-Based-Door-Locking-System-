@@ -1,0 +1,59 @@
+//Biometric finger print scanner 
+
+#include <Adafruit_Fingerprint.h>
+#include <SoftwareSerial.h>
+
+// Define pins for fingerprint sensor
+SoftwareSerial mySerial(2, 3); // RX, TX
+Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
+
+// Define pin for relay module controlling the 12V lock
+#define RELAY_PIN 7
+
+void setup() {
+    Serial.begin(9600);
+    mySerial.begin(57600);
+    finger.begin(57600);
+    pinMode(RELAY_PIN, OUTPUT);
+    digitalWrite(RELAY_PIN, LOW); // Ensure lock is locked initially
+
+    if (finger.verifyPassword()) {
+        Serial.println("Fingerprint sensor found!");
+    } else {
+        Serial.println("Fingerprint sensor not detected!");
+        while (1);
+    }
+}
+
+void loop() {
+    Serial.println("Waiting for a valid fingerprint...");
+    uint8_t id = getFingerprintID();
+    
+    if (id > 0) {
+        Serial.print("Access granted for ID: ");
+        Serial.println(id);
+        unlockLock();
+    }
+    delay(1000); // Avoid rapid re-scanning
+}
+
+uint8_t getFingerprintID() {
+    uint8_t p = finger.getImage();
+    if (p != FINGERPRINT_OK) return 0;
+    
+    p = finger.image2Tz();
+    if (p != FINGERPRINT_OK) return 0;
+    
+    p = finger.fingerFastSearch();
+    if (p != FINGERPRINT_OK) return 0;
+    
+    return finger.fingerID;
+}
+
+void unlockLock() {
+    Serial.println("Unlocking lock...");
+    digitalWrite(RELAY_PIN, HIGH); // Activate relay to unlock
+    delay(5000); // Keep lock open for 5 seconds
+    digitalWrite(RELAY_PIN, LOW); // Lock again
+    Serial.println("Lock secured.");
+}
